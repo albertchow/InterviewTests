@@ -7,59 +7,84 @@ using System.Threading.Tasks;
 namespace GraduationTracker
 {
     public partial class GraduationTracker
-    {   
-        public Tuple<bool, STANDING>  HasGraduated(Diploma diploma, Student student)
+    {
+        public Tuple<bool, STANDING> HasGraduated(Diploma diploma, Student student)
+        {
+            try
+            {
+                var creditsAverage = GetCreditAverage(diploma, student);
+                var standing = GetStanding(creditsAverage.Item2);
+
+                // Not enough credits
+                if (creditsAverage.Item1 < diploma.Credits)
+                    return new Tuple<bool, STANDING>(false, STANDING.Remedial);
+                else if (standing == STANDING.Remedial || standing == STANDING.None)
+                    return new Tuple<bool, STANDING>(false, standing);
+                else
+                    return new Tuple<bool, STANDING>(true, standing);
+            }
+            catch (Exception ex)
+            {
+                return new Tuple<bool, STANDING>(false, STANDING.None);
+            }
+        }
+
+        private STANDING GetStanding(int average)
+        {
+            try
+            {
+                if (average < 50)
+                    return STANDING.Remedial;
+                else if (average < 80)
+                    return STANDING.Average;
+                else if (average < 95)
+                    return STANDING.MagnaCumLaude;
+                else
+                    return STANDING.SumaCumLaude;
+            }
+            catch (Exception)
+            {
+                return STANDING.None;
+            }
+        }
+
+        private Tuple<int, int> GetCreditAverage(Diploma diploma, Student student)
         {
             var credits = 0;
             var average = 0;
-        
-            for(int i = 0; i < diploma.Requirements.Length; i++)
-            {
-                for(int j = 0; j < student.Courses.Length; j++)
-                {
-                    var requirement = Repository.GetRequirement(diploma.Requirements[i]);
 
-                    for (int k = 0; k < requirement.Courses.Length; k++)
+            var result = new Tuple<int, int>(0, 0);
+            if (diploma == null || student == null)
+                return result;
+
+            try
+            {
+                for (int i = 0; i < diploma.Requirements.Length; i++)
+                {
+                    for (int j = 0; j < student.Courses.Length; j++)
                     {
-                        if (requirement.Courses[k] == student.Courses[j].Id)
+                        var requirement = Repository.GetRequirement(diploma.Requirements[i]);
+
+                        for (int k = 0; k < requirement.CourseIDs.Length; k++)
                         {
-                            average += student.Courses[j].Mark;
-                            if (student.Courses[j].Mark > requirement.MinimumMark)
+                            if (requirement.CourseIDs[k] == student.Courses[j].Id)
                             {
-                                credits += requirement.Credits;
+                                average += student.Courses[j].Mark;
+                                if (student.Courses[j].Mark >= requirement.MinimumMark)
+                                {
+                                    credits += requirement.Credits;
+                                }
                             }
                         }
                     }
                 }
+                average = average / student.Courses.Length;
+                return new Tuple<int, int>(credits, average);
             }
-
-            average = average / student.Courses.Length;
-
-            var standing = STANDING.None;
-
-            if (average < 50)
-                standing = STANDING.Remedial;
-            else if (average < 80)
-                standing = STANDING.Average;
-            else if (average < 95)
-                standing = STANDING.MagnaCumLaude;
-            else
-                standing = STANDING.MagnaCumLaude;
-
-            switch (standing)
+            catch (Exception ex)
             {
-                case STANDING.Remedial:
-                    return new Tuple<bool, STANDING>(false, standing);
-                case STANDING.Average:
-                    return new Tuple<bool, STANDING>(true, standing);
-                case STANDING.SumaCumLaude:
-                    return new Tuple<bool, STANDING>(true, standing);
-                case STANDING.MagnaCumLaude:
-                    return new Tuple<bool, STANDING>(true, standing);
-
-                default:
-                    return new Tuple<bool, STANDING>(false, standing);
-            } 
+                return result;
+            }
         }
     }
 }
